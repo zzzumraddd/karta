@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Людные места Ташкента — рынки, моллы, метро</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  :root{ --panel:#fff; --ink:#0f172a; --muted:#64748b; --accent:#2563eb; --line:#e2e8f0; --chip:#f1f5f9; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:#eef2f7;display:flex;flex-direction:column;}
+
+  header{background:linear-gradient(135deg,#7c2d12,#ea580c);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(15,23,42,.25);z-index:1100;}
+  header .logo{width:38px;height:38px;flex:none;}
+  header h1{font-size:19px;font-weight:700;}
+  header p{font-size:12px;opacity:.9;}
+  header a.back{margin-left:auto;color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:9px;text-decoration:none;font-size:13px;}
+  header a.back:hover{background:rgba(255,255,255,.28);}
+
+  main{flex:1;display:flex;min-height:0;position:relative;}
+
+  aside{width:320px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;z-index:1000;}
+  .panel{padding:14px 16px;border-bottom:1px solid var(--line);}
+  input[type=search]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;outline:none;}
+  input[type=search]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15);}
+  .f-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;margin:10px 0 6px;}
+  .cat{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:9px;cursor:pointer;user-select:none;border:1px solid transparent;}
+  .cat:hover{background:#f8fafc;}
+  .cat input{display:none;}
+  .cat .swatch{width:16px;height:16px;border-radius:5px;flex:none;border:2px solid;opacity:.25;transition:opacity .15s;}
+  .cat.on .swatch{opacity:1;}
+  .cat .cname{font-size:13.5px;font-weight:600;flex:1;}
+  .cat .cnt{font-size:12px;color:var(--muted);}
+  .cat.off .cname,.cat.off .cnt{color:#b6c2d2;text-decoration:line-through;}
+  .legend-note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;}
+  .list{flex:1;overflow:auto;min-height:0;}
+  .found{padding:8px 16px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);background:#f8fafc;}
+  .item{padding:9px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:9px;align-items:center;}
+  .item:hover{background:#f1f5f9;}
+  .item .dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .item .nm{font-size:13px;font-weight:600;}
+  .item .sub{font-size:11px;color:var(--muted);}
+  .more{width:100%;padding:12px;border:none;background:#f8fafc;color:var(--accent);font-weight:600;cursor:pointer;font-size:13px;}
+
+  #map{flex:1;min-height:0;}
+  .leaflet-popup-content{font-family:inherit;font-size:13px;line-height:1.45;}
+  .pop b{font-size:14px;}
+  .pop .cat-badge{display:inline-block;margin-top:5px;padding:2px 9px;border-radius:999px;color:#fff;font-size:11px;font-weight:600;}
+  .pop .meta{margin-top:6px;font-size:11.5px;color:#64748b;}
+
+  .spot-label{pointer-events:none;}
+  .spot-label span{
+    display:inline-block;white-space:nowrap;font-weight:700;font-size:12px;color:#0f172a;
+    text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 5px #fff;
+    transform:translate(-50%,-50%);
+  }
+  .spot-label.big span{font-size:13.5px;}
+  .spot-label.small span{font-size:11px;font-weight:600;color:#334155;}
+
+  footer{background:#0f172a;color:#94a3b8;font-size:11.5px;padding:8px 20px;display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;}
+
+  @media (max-width:820px){
+    main{flex-direction:column;}
+    aside{width:100%;order:2;border-right:none;border-top:1px solid var(--line);max-height:46vh;}
+    #map{order:1;min-height:46vh;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="logo" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="9" r="3.2" stroke="#fff" stroke-width="1.7"/><circle cx="16.5" cy="14.5" r="2.6" stroke="#fff" stroke-width="1.7"/><circle cx="10" cy="17" r="2" stroke="#fff" stroke-width="1.7"/><circle cx="17" cy="6.5" r="1.7" stroke="#fff" stroke-width="1.7"/></svg>
+  <div>
+    <h1>Людные места Ташкента</h1>
+    <p>Рынки, моллы, метро и супермаркеты — здания и территории с цветовой разметкой</p>
+  </div>
+  <a class="back" href="index.html">← Карта банкоматов</a>
+</header>
+
+<main>
+  <aside>
+    <div class="panel">
+      <input type="search" id="q" placeholder="Поиск: базар, метро, молл…">
+      <div class="f-label">Слои</div>
+      <div id="cats"></div>
+      <label class="cat" id="atm-cat" style="margin-top:6px">
+        <input type="checkbox" id="atm-toggle">
+        <span class="swatch" style="background:#94a3b8;border-color:#64748b"></span>
+        <span class="cname">Банкоматы (фон)</span>
+        <span class="cnt" id="atm-cnt">…</span>
+      </label>
+      <div class="legend-note">Цветные контуры — здания/территории из OpenStreetMap, подпись — название. Клик по объекту — подробности. Найдёте неточность — данные можно обновить в OSM.</div>
+    </div>
+    <div class="found" id="found"></div>
+    <div class="list" id="list"></div>
+  </aside>
+  <div id="map"></div>
+</main>
+
+<footer>
+  <div>Данные: участники OpenStreetMap (ODbL) + банкоматы ЦБ РУз от 10.10.2026 · Границы и названия могут быть неполными</div>
+  <div>Карта © тайлы OpenStreetMap</div>
+</footer>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+const VIEW={center:[41.31,69.24],zoom:12};
+const SUP_LABEL_ZOOM=15;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const map=L.map('map',{preferCanvas:true}).setView(VIEW.center,VIEW.zoom);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+
+let DATA=null,ATM=null;
+const layerGroups={};      // cat -> LayerGroup of shapes
+const labelGroups={};      // cat -> LayerGroup of always-on labels
+let supLabelGroup=null;    // supermarket labels (zoom-gated)
+const catOn={};
+let atmLayer=null;
+
+fetch('spots.json').then(r=>r.json()).then(async d=>{
+  DATA=d;
+  for(const [id,cat] of Object.entries(d.cats)){
+    layerGroups[id]=L.layerGroup().addTo(map);
+    labelGroups[id]=L.layerGroup().addTo(map);
+    catOn[id]=true;
+  }
+  supLabelGroup=L.layerGroup();
+
+  for(const s of d.spots){
+    const cat=d.cats[s.cat], color=cat.color;
+    const label=s.name||cat.name;
+    let shape;
+    if(s.poly && s.poly.length>2){
+      shape=L.polygon(s.poly,{color:color,weight:2,fillColor:color,fillOpacity:.32});
+    } else {
+      const r = s.cat==='supermarket'?5 : s.cat==='metro'?7 : 8;
+      shape=L.circleMarker(s.pt,{radius:r,color:'#fff',weight:1.5,fillColor:color,fillOpacity:.95});
+    }
+    const kind=s.poly?'здание / территория':'точка';
+    shape.bindPopup(`<div class="pop"><b>${esc(label)}</b><br>
+      <span class="cat-badge" style="background:${color}">${esc(cat.name)}</span>
+      <div class="meta">${kind} · ${s.pt[0]}, ${s.pt[1]}</div></div>`,{maxWidth:300});
+    layerGroups[s.cat].addLayer(shape);
+
+    // labels
+    const big = s.cat==='market'||s.cat==='mall';
+    const lbl=L.marker(s.pt,{interactive:false,icon:L.divIcon({
+      className:'spot-label '+(big?'big':(s.cat==='supermarket'?'small':'')),
+      html:`<span>${esc(label)}</span>`,iconSize:[0,0]})});
+    if(s.cat==='supermarket'){ if(s.name) supLabelGroup.addLayer(lbl); }
+    else labelGroups[s.cat].addLayer(lbl);
+  }
+  updateSupLabels();
+
+  // sidebar layer toggles
+  const catsEl=document.getElementById('cats');
+  for(const [id,cat] of Object.entries(d.cats)){
+    const n=d.spots.filter(s=>s.cat===id).length;
+    const l=document.createElement('label');
+    l.className='cat on';
+    l.innerHTML=`<input type="checkbox" checked><span class="swatch" style="background:${cat.color}55;border-color:${cat.color}"></span>
+      <span class="cname">${esc(cat.name)}</span><span class="cnt">${n}</span>`;
+    l.querySelector('input').addEventListener('change',e=>{
+      catOn[id]=e.target.checked;
+      l.classList.toggle('on',catOn[id]); l.classList.toggle('off',!catOn[id]);
+      applyLayers();
+    });
+    catsEl.appendChild(l);
+  }
+
+  // ATM background layer
+  try{
+    const a=await fetch('atms.json').then(r=>r.json());
+    ATM=a.atms;
+    document.getElementById('atm-cnt').textContent=ATM.length.toLocaleString('ru-RU');
+    atmLayer=L.layerGroup();
+    for(const t of ATM){
+      atmLayer.addLayer(L.circleMarker([t.lat,t.lng],{radius:3,weight:0,fillColor:'#64748b',fillOpacity:.55,interactive:false}));
+    }
+    document.getElementById('atm-toggle').addEventListener('change',e=>{
+      if(e.target.checked){atmLayer.addTo(map);document.getElementById('atm-cat').classList.add('on');}
+      else{map.removeLayer(atmLayer);document.getElementById('atm-cat').classList.remove('on');}
+    });
+  }catch(e){}
+
+  applyLayers();
+  renderList();
+});
+
+function applyLayers(){
+  for(const id of Object.keys(layerGroups)){
+    if(catOn[id]){ map.addLayer(layerGroups[id]); map.addLayer(labelGroups[id]); }
+    else{ map.removeLayer(layerGroups[id]); map.removeLayer(labelGroups[id]); }
+  }
+  updateSupLabels();
+  renderList();
+}
+function updateSupLabels(){
+  if(!supLabelGroup) return;
+  if(catOn['supermarket'] && map.getZoom()>=SUP_LABEL_ZOOM) supLabelGroup.addTo(map);
+  else map.removeLayer(supLabelGroup);
+}
+map.on('zoomend',updateSupLabels);
+
+function currentRows(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  return DATA.spots.filter(s=>{
+    if(!catOn[s.cat]) return false;
+    if(q && !((s.name||'').toLowerCase().includes(q) || DATA.cats[s.cat].name.toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a,b)=>((b.poly?1:0)-(a.poly?1:0)) || (b.name||'').localeCompare(a.name||'','ru'));
+}
+
+let listLimit=120;
+function renderList(){
+  if(!DATA) return;
+  const rows=currentRows();
+  document.getElementById('found').textContent=`Найдено объектов: ${rows.length}`;
+  const el=document.getElementById('list');
+  el.innerHTML=rows.slice(0,listLimit).map((s,i)=>`
+    <div class="item" data-i="${i}">
+      <span class="dot" style="background:${DATA.cats[s.cat].color}"></span>
+      <div><div class="nm">${esc(s.name||DATA.cats[s.cat].name)}</div>
+      <div class="sub">${esc(DATA.cats[s.cat].name)}${s.poly?' · контур здания':''}</div></div>
+    </div>`).join('') +
+    (rows.length>listLimit?`<button class="more" id="more">Показать ещё (${rows.length-listLimit})</button>`:'');
+  el.querySelectorAll('.item').forEach(it=>{
+    it.addEventListener('click',()=>{
+      const s=rows[+it.dataset.i];
+      if(s.poly && s.poly.length>2){ map.fitBounds(L.polygon(s.poly).getBounds().pad(.3),{maxZoom:17}); }
+      else map.setView(s.pt,17);
+    });
+  });
+  const more=el.querySelector('#more');
+  if(more) more.addEventListener('click',()=>{listLimit+=150;renderList();});
+}
+let deb;
+document.getElementById('q').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{listLimit=120;renderList();},200);});
+</script>
+</body>
+</html>

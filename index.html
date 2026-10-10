@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Банкоматы Ташкента — интерактивная карта</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="vendor/MarkerCluster.css">
+<link rel="stylesheet" href="vendor/MarkerCluster.Default.css">
+<style>
+  :root{
+    --bg:#0f172a; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --accent:#2563eb; --accent2:#16a34a; --line:#e2e8f0; --chip:#f1f5f9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:var(--ink); background:#eef2f7; display:flex; flex-direction:column;}
+
+  header{background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; box-shadow:0 2px 10px rgba(15,23,42,.25); z-index:1100;}
+  header .logo{width:38px;height:38px;flex:none;}
+  header h1{font-size:19px; font-weight:700; letter-spacing:.2px;}
+  header p{font-size:12px; opacity:.85;}
+  .stats{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;}
+  .stat{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); border-radius:10px; padding:6px 12px; text-align:center; min-width:86px;}
+  .stat b{display:block; font-size:16px;}
+  .stat span{font-size:11px; opacity:.85;}
+
+  main{flex:1; display:flex; min-height:0; position:relative;}
+
+  aside{width:340px; flex:none; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; z-index:1000;}
+  .filters{padding:14px 16px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow:auto;}
+  .filters label.f-label{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); font-weight:600; margin-top:2px;}
+  input[type=search], select{width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; background:#fff; color:var(--ink); outline:none;}
+  input[type=search]:focus, select:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.15);}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--line); font-size:12.5px; cursor:pointer; user-select:none; transition:all .15s;}
+  .chip input{display:none;}
+  .chip.on{background:#dbeafe; border-color:#93c5fd; color:#1d4ed8; font-weight:600;}
+  .chip .dot{width:8px;height:8px;border-radius:50%;}
+  .row2{display:flex; gap:8px;}
+  .row2 > *{flex:1;}
+  .btn-reset{padding:8px; border:1px solid var(--line); background:#fff; border-radius:9px; cursor:pointer; font-size:13px; color:var(--muted);}
+  .btn-reset:hover{border-color:#f87171; color:#dc2626;}
+  .found{padding:8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:#f8fafc;}
+  .found b{color:var(--ink);}
+  .list{flex:1; overflow:auto; min-height:0;}
+  .item{padding:10px 16px; border-bottom:1px solid var(--line); cursor:pointer; transition:background .12s;}
+  .item:hover{background:#f1f5f9;}
+  .item .bank{font-size:13px; font-weight:600;}
+  .item .addr{font-size:12px; color:var(--muted); margin-top:2px; line-height:1.35;}
+  .item .tags{margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;}
+  .tag{font-size:10px; padding:2px 7px; border-radius:999px; background:var(--chip); color:#475569; border:1px solid var(--line);}
+  .more{width:100%; padding:12px; border:none; background:#f8fafc; color:var(--accent); font-weight:600; cursor:pointer; font-size:13px;}
+  .more:hover{background:#eff6ff;}
+
+  #map{flex:1; min-height:0;}
+  .leaflet-popup-content{font-family:inherit; font-size:13px; line-height:1.45;}
+  .pop .bank{font-weight:700; font-size:14px; margin-bottom:4px;}
+  .pop .addr{color:#334155;}
+  .pop .sys{margin-top:6px; font-size:12px; color:#0f172a;}
+  .pop .sys b{color:var(--muted); font-weight:600;}
+
+  footer{background:#0f172a; color:#94a3b8; font-size:11.5px; padding:8px 20px; display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between;}
+  footer a{color:#cbd5e1;}
+
+  @media (max-width:820px){
+    main{flex-direction:column;}
+    aside{width:100%; order:2; border-right:none; border-top:1px solid var(--line); max-height:46vh;}
+    #map{order:1; min-height:44vh;}
+    .filters{max-height:32vh;}
+    .stats{margin-left:0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="logo" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2.5" stroke="#fff" stroke-width="1.7"/><rect x="7" y="8.5" width="10" height="2.4" rx="1" fill="#fff"/><circle cx="9" cy="15" r="1.3" fill="#fff"/><circle cx="15" cy="15" r="1.3" fill="#fff"/></svg>
+  <div>
+    <h1>Банкоматы Ташкента</h1>
+    <p>Интерактивная карта по открытым данным Центрального банка РУз · только г. Ташкент</p>
+  </div>
+  <div class="stats">
+    <a href="spots.html" style="text-decoration:none"><div class="stat" title="Рынки, моллы, метро"><b style="font-size:13px;line-height:2.3">🔥 Людные места</b></div></a>
+    <div class="stat"><b id="st-total">—</b><span>банкоматов</span></div>
+    <div class="stat"><b id="st-banks">—</b><span>банков</span></div>
+    <div class="stat"><b id="st-found">—</b><span>показано</span></div>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="filters">
+      <input type="search" id="q" placeholder="Поиск по адресу или банку…">
+      <label class="f-label" for="bank">Банк</label>
+      <select id="bank"><option value="">Все банки</option></select>
+      <label class="f-label" for="district">Район города</label>
+      <select id="district"><option value="">Все районы</option></select>
+      <label class="f-label">Платёжные системы</label>
+      <div class="chips" id="ps-chips"></div>
+      <div class="row2">
+        <button class="btn-reset" id="reset">Сбросить фильтры</button>
+        <button class="btn-reset" id="fit">Весь Ташкент</button>
+      </div>
+    </div>
+    <div class="found">Найдено: <b id="found-n">0</b> банкоматов — клик по строке приближает карту</div>
+    <div class="list" id="list"></div>
+  </aside>
+  <div id="map"></div>
+</main>
+
+<footer>
+  <div>Источник: открытые данные ЦБ РУз (cbu.uz), скачано 10.10.2026 · Показаны только банкоматы г. Ташкента с корректными координатами</div>
+  <div>Карта © тайлы OpenStreetMap</div>
+</footer>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
+<script>
+const PS = [
+  ['UZCARD','Uzcard','#1d4ed8'],
+  ['HUMO','Humo','#f59e0b'],
+  ['VISA','Visa','#1a237e'],
+  ['MASTERCARD','Mastercard','#dc2626'],
+  ['UNIONPAY','UnionPay','#0e7490'],
+  ['MIR','Мир','#15803d'],
+  ['MAESTRO','Maestro','#7c3aed'],
+];
+const TASHKENT_VIEW = {center:[41.31, 69.24], zoom:12};
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let DATA=null, markers=null, cluster=null, listLimit=80;
+const activePS = new Set();
+const map = L.map('map', {preferCanvas:true}).setView(TASHKENT_VIEW.center, TASHKENT_VIEW.zoom);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+fetch('atms.json').then(r=>r.json()).then(d=>{
+  DATA=d;
+  document.getElementById('st-total').textContent = d.meta.total.toLocaleString('ru-RU');
+  document.getElementById('st-banks').textContent = d.meta.banks;
+  const bankSel=document.getElementById('bank');
+  d.banks.forEach(b=>{ const o=document.createElement('option'); o.value=o.textContent=b; bankSel.appendChild(o); });
+  const distSel=document.getElementById('district');
+  d.districts.forEach(r=>{ const o=document.createElement('option'); o.value=o.textContent=r; distSel.appendChild(o); });
+  const chips=document.getElementById('ps-chips');
+  PS.forEach(([id,name,color])=>{
+    const l=document.createElement('label'); l.className='chip';
+    l.innerHTML=`<input type="checkbox" value="${id}"><span class="dot" style="background:${color}"></span>${name}`;
+    l.querySelector('input').addEventListener('change',e=>{
+      if(e.target.checked){activePS.add(id); l.classList.add('on');} else {activePS.delete(id); l.classList.remove('on');}
+      apply();
+    });
+    chips.appendChild(l);
+  });
+  apply();
+});
+
+function currentFilter(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const bank=document.getElementById('bank').value;
+  const district=document.getElementById('district').value;
+  return DATA.atms.filter(a=>{
+    if(bank && a.b!==bank) return false;
+    if(district && a.d!==district) return false;
+    if(activePS.size && !a.t.some(t=>activePS.has(t))) return false;
+    if(q && !(a.a.toLowerCase().includes(q)||a.b.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function popupHtml(a){
+  return `<div class="pop"><div class="bank">${esc(a.b)}</div>
+    <div class="addr">📍 ${esc(a.a)}</div>
+    <div class="sys"><b>Карты:</b> ${esc(a.ps||'н/д')}</div></div>`;
+}
+
+function apply(){
+  const rows=currentFilter();
+  document.getElementById('found-n').textContent = rows.length.toLocaleString('ru-RU');
+  document.getElementById('st-found').textContent = rows.length.toLocaleString('ru-RU');
+
+  if(cluster) map.removeLayer(cluster);
+  cluster=L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:60});
+  markers={};
+  const fg=L.featureGroup();
+  for(const a of rows){
+    const m=L.circleMarker([a.lat,a.lng],{radius:7,weight:1,color:'#fff',fillColor:'#2563eb',fillOpacity:.9});
+    m.bindPopup(popupHtml(a),{maxWidth:300});
+    markers[a.id]=m; cluster.addLayer(m); fg.addLayer(L.marker([a.lat,a.lng]));
+  }
+  map.addLayer(cluster);
+  if(rows.length && rows.length<=400){ try{map.fitBounds(fg.getBounds().pad(0.15));}catch(e){} }
+
+  listLimit=80;
+  renderList(rows);
+  window._rows=rows;
+}
+
+function renderList(rows){
+  const el=document.getElementById('list');
+  const slice=rows.slice(0,listLimit);
+  el.innerHTML = slice.map(a=>`
+    <div class="item" data-id="${a.id}">
+      <div class="bank">${esc(a.b)}</div>
+      <div class="addr">${esc(a.a)}</div>
+      <div class="tags">${a.t.map(t=>`<span class="tag">${esc(PS.find(p=>p[0]===t)?.[1]||t)}</span>`).join('')}</div>
+    </div>`).join('') +
+    (rows.length>listLimit?`<button class="more" id="more">Показать ещё (${(rows.length-listLimit).toLocaleString('ru-RU')})</button>`:'');
+  el.querySelectorAll('.item').forEach(it=>{
+    it.addEventListener('click',()=>{
+      const m=markers[it.dataset.id]; if(!m) return;
+      map.setView(m.getLatLng(), Math.max(map.getZoom(),16));
+      setTimeout(()=>m.openPopup(),250);
+      if(window.innerWidth<=820) window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+  const more=el.querySelector('#more');
+  if(more) more.addEventListener('click',()=>{ listLimit+=120; renderList(window._rows); });
+}
+
+let deb;
+document.getElementById('q').addEventListener('input',()=>{clearTimeout(deb); deb=setTimeout(apply,250);});
+document.getElementById('bank').addEventListener('change',apply);
+document.getElementById('district').addEventListener('change',apply);
+document.getElementById('reset').addEventListener('click',()=>{
+  document.getElementById('q').value=''; document.getElementById('bank').value=''; document.getElementById('district').value='';
+  activePS.clear();
+  document.querySelectorAll('#ps-chips .chip').forEach(c=>{c.classList.remove('on'); c.querySelector('input').checked=false;});
+  apply();
+});
+document.getElementById('fit').addEventListener('click',()=>map.setView(TASHKENT_VIEW.center, TASHKENT_VIEW.zoom));
+</script>
+</body>
+</html>
